@@ -1,0 +1,280 @@
+<!doctype html>
+<!--[if lt IE 7 ]> <html class="no-js ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]>    <html class="no-js ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]>    <html class="no-js ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--> <html class="no-js" lang="en" dir="ltr"><!--<![endif]-->
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="x-ua-compatible" content="ie=edge">
+	<meta name="description" content="MEIDAI">
+	<meta name="author" content="MEIDAI">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+	<link rel="shortcut icon" href="img/favicon.ico">
+	<link rel="Bookmark" href="img/favicon.ico">
+
+	<link rel="stylesheet" href="css/foundation.min.css">
+	<link rel="stylesheet" href="css/app.css">
+	<link rel="stylesheet" type="text/css" href="css/fswear.css">
+	<link rel="stylesheet" href="css/magnific-popup.css">
+
+	<script src="js/jquery/jquery.js"></script>
+	<script src="js/jquery/jquery.validate.js"></script>
+	<script src="js/jquery/jquery.i18n.properties.js"></script>
+	<script src="js/jquery/jquery.magnific-popup.min.js"></script>
+	<script src="js/vendor/fswear_patch.js"></script>
+	<script src="js/vendor/fswear.js"></script>
+	<script src="js/vendor/cookies.js"></script>
+	<script src="js/vendor/common_zq.js"></script>
+
+	<script type="text/javascript"> 
+		
+		$(document).ready(function(){ 
+			function loadProperties(userLang){ 
+				jQuery.i18n.properties({
+					name:'strings',
+					path:'resources/i18n/',
+					mode:'map',
+					language:userLang,
+					callback: function() {
+						document.title=$.i18n.prop('string_logintitle');
+						$('#mainnav').html($.i18n.prop('string_loginnav'));
+						$('#label_pwd').html($.i18n.prop('string_pwd'));
+						$('#btn_login').val($.i18n.prop('string_login'));
+						$('#btn_forget').html($.i18n.prop('string_forget'));
+						$('#newuser').val($.i18n.prop('string_newuser'));
+						$('#before_app').html($.i18n.prop('string_beforeapp'));
+						$('#middle_app').html($.i18n.prop('string_middleapp'));
+						$('#after_app').html($.i18n.prop('string_afterapp'));
+						$('#btn_android').html($.i18n.prop('string_btnandroid'));
+						$('#btn_ios').html($.i18n.prop('string_btnios'));
+						$('#uid').attr('placeholder',$.i18n.prop('string_uidplace'));
+						$('#pwd').attr('placeholder',$.i18n.prop('string_pwdplace'));
+						$('#label_forgetuid').html($.i18n.prop('string_labelforget'));
+						$('#forgetuid').attr('placeholder',$.i18n.prop('string_uidplace'));
+						$('#btn_resetpwd').val($.i18n.prop('string_resetpwd'));
+						$('#label_resetpwd').html($.i18n.prop('string_labelresetpwd'));
+					}
+				}); 
+			}
+			loadProperties(userLang);
+			loadProperties_global(userLang);
+		
+			$("#uid").change(function(){
+				$('#outtipuid').html('<div id="tipuid" class="tip_zq"></div>');
+			});
+			$("#pwd").change(function(){
+				$('#outtippwd').html('<div id="tippwd" class="tip_zq"></div>');
+				var pwd=$('#pwd').val();
+				var beg=pwd.indexOf('[');
+				var end=pwd.indexOf(']');
+				if(beg>-1 && end>beg){
+					pwd = pwd.substring(beg+2,end-1);
+				}
+				$(this).val(pwd);
+			});
+		
+			$("#newuser").on('click',function(event){
+				window.location = "registration.html";
+			});
+		
+			$('.popup-with-form').magnificPopup({
+				type: 'inline',
+				preloader: false,
+				focus: '#forgetuid',
+
+				// When elemened is focused, some mobile browsers in some cases zoom in
+				// It looks not nice, so we disable it:
+				callbacks: {
+					beforeOpen: function() {
+						if($(window).width() < 700) {
+							this.st.focus = false;
+						} else {
+							this.st.focus = '#forgetuid';
+						}
+					}
+				}
+			});
+			
+			$("#btn_resetpwd").on('click',function(event){
+				event.preventDefault();
+				var uid=$('#forgetuid').val();
+				var data={};
+				data.action="resetpassword";
+				var patt = /@/;
+				if(patt.test(uid)){
+					data.email=uid;
+				}else{
+					data.phone=uid;
+				}
+				$.ajax({ 
+					url: "/user",
+					type: 'POST',
+					data: data,
+					success: function(re){
+						var re = JSON.parse(re);
+						console.log(re);
+						if(re.result=="true"){
+							$('#outtipforget').html('<div id="pwdreset_ok"></div>');
+							$('#forget_form').hide();
+							loadProperties_okdynamic(userLang);
+							return;
+						}
+						// clear all tips
+						$('#outtipforget').html('<div id="tipforgetuid" class=""></div>');
+						switcherror(re,"tipforget","");
+						loadProperties_errordynamic(userLang);
+					},
+					error: function(error) {
+						console.log("resetpassword: error");
+						console.log(error);
+					}
+				});
+			});
+			
+		});//end ready
+
+		$(function(){
+			// user login
+			$('#loginform').on('submit', function(event){
+				// validation code here
+				event.preventDefault();
+				var uid=$('#uid').val();
+				var pwd=$('#pwd').val();
+				// detect mobile browser, use RegExp as a trick
+				//if( /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ) {
+				//}
+				var data={};
+				data.action="login";
+				var patt = /@/;
+				if(patt.test(uid)){
+					data.email=uid;
+				}else{
+					data.phone=uid;
+				}
+				data.password=pwd;
+				$.ajax({ 
+					url: "/user",
+					type: 'POST',
+					data: data,
+					success: function(re){
+						var re = JSON.parse(re);
+						console.log(re);
+						if(re.result=="true"){
+							setCookie_exDay("useruuid",re.uuid,1);
+							var now=new Date();
+							setCookie_exDay("logintime",now,1);
+							window.location = "index.html";
+							return;
+						}
+						// clear all tips
+						$('#outtipuid').html('<div id="tipuid" class="tip_zq"></div>');
+						$('#outtippwd').html('<div id="tippwd" class="tip_zq"></div>');
+						$('#outtiptip').html('<div id="tiptip" class="tip_zq"></div>');
+						switcherror(re);
+						loadProperties_errordynamic(userLang);
+					},
+					error: function() {
+						console.log("error");
+					}
+				});
+  			});
+		});
+
+	</script>
+	<!-- Other JavaScript at the bottom -->
+</head>
+
+<body class="body_zq">
+<div id="container">
+
+<div class="outer">
+<div class="middle">
+<div class="inner">
+
+	<div id="nav">
+		<nav><h1 id="mainnav">&#x1A;</h1></nav>
+		<h4 id="subnav">&#x1A;</h4>
+	</div>
+	
+	<div class="row">   
+		<div class="small-10 small-centered medium-4 medium-centered large-4 large-centered columns">
+
+			<form method="post" target="_self" name="loginform" id="loginform">
+				<div class="row column">
+					
+					<label for="uid" class="text_zq" id="label_uid">&#x1A;</label>
+					<input class="input_zq" type="text" id="uid" name="uid" value="" required/>
+					<div id="outtipuid">
+						<div id="tipuid"></div> 
+					</div>	
+
+					<label for="pwd" class="text_zq" id="label_pwd">&#x1A;</label>
+					<input class="input_zq" type="password" id="pwd" name="pwd" required/>
+					<div  id="outtippwd">
+						<div id="tippwd"></div> 
+					</div>	
+
+					<!--
+					<input class="input_zq" id="show-password" type="checkbox"/>
+					<label class="text_zq" for="show-password">Show password</label>
+					-->
+					
+					<div>
+					<input class="link_zq button_zq" type="submit" value="&#x1A;"  id="btn_login"/>
+					</div>
+					<div  id="outtiptip">
+						<div id="tiptip"></div>   
+					</div>	
+					
+					<div>
+						<p><a class="text_zq link_zq popup-with-form" href="#test-form" id="btn_forget">&#x1A;</a></p>
+					</div>  
+					
+					<div>
+						<input class="link_zq inputbutton" type="button" id="newuser" value=""/>				
+					</div>
+
+				</div>  				
+			</form>
+			
+			<div>
+				<span id="before_app"></span>
+				<span><a href="/resources/meidai.apk" class="link_zq" id="btn_android"></a></span>
+				<span id="middle_app"></span>
+				<span><a href="https://appsto.re/cn/swz-cb.i" class="link_zq" id="btn_ios"></a></span>
+				<span id="after_app"></span>
+			</div>
+
+		</div>
+	</div>
+	
+	<div id="test-form" class="mfp-hide white-popup-block">
+		<div class="row">
+			<div class="small-10 small-centered medium-6 medium-centered large-6 large-centered columns">		
+				<h4 class="text-center" id="label_resetpwd"></h4>
+				<form id="forget_form">
+					<label for="forgetuid" class="" id="label_forgetuid">&#x1A;</label>
+					<input class="input_zq" type="text" id="forgetuid" name="uid" value="" required/>
+					<input class="link_zq button_zq" type="submit" value="&#x1A;"  id="btn_resetpwd"/>
+				</form>
+				<div id="outtipforget"></div>	
+			</div>
+		</div>
+	</div>
+</div>
+</div>
+</div>
+
+
+</div>
+
+	<!-- JavaScript at the bottom for fast page loading -->
+	<script src="js/vendor/what-input.js"></script>
+	<script src="js/vendor/foundation.min.js"></script>
+	<script src="js/app.js"></script>
+	<!-- end scripts-->
+
+
+</body>
+</html>

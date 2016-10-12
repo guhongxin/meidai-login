@@ -1,0 +1,487 @@
+﻿<!doctype html>
+<!--[if lt IE 7 ]> <html class="no-js ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]>    <html class="no-js ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]>    <html class="no-js ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--> <html class="no-js" lang="en" dir="ltr"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <meta name="description" content="MEIDAI">
+  <meta name="author" content="MEIDAI">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link rel="stylesheet" href="css/foundation.min.css">
+  <link rel="stylesheet" href="css/foundation-datepicker.css">
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/login_zq.css">
+  <link rel="stylesheet" href="css/index_zq.css">
+  <link rel="stylesheet" href="css/account_zq.css">
+  <link rel='stylesheet' href='http://cdnjs.cloudflare.com/ajax/libs/foundicons/3.0.0/foundation-icons.css' type='text/css'>
+
+	<script src="js/vendor/async.min.js"></script>	
+	<script src="js/jquery/jquery.js"></script>
+	<script src="js/jquery/jquery.validate.js"></script>
+	<script src="js/jquery/jquery.i18n.properties.js"></script>
+	<script src="js/vendor/fswear_patch.js"></script>
+	<script src="js/vendor/fswear.js"></script>
+	<script src="js/vendor/cookies.js"></script>
+	<script src="js/vendor/common_zq.js"></script>
+
+	<script type="text/javascript"> 
+		// check cookie
+		useruuid = getCookie("useruuid");
+		var logintime=new Date(getCookie("logintime"));
+		var now=new Date();
+		if(useruuid==null || now.getTime()-logintime.getTime()>24 * 60 * 60 * 1000){
+			console.log('index.html: no useruuid in cookie or expired, redirect to login.html'); 
+			window.location='login.html';
+		}
+		// local page variables
+		var op_query_userinfo=["phone","email","username","gender","birthday"];
+
+		$(document).ready(function(){
+		
+			function loadProperties(userLang){ 
+				jQuery.i18n.properties({
+					name:'strings',
+					path:'resources/i18n/',
+					mode:'map',
+					language:userLang,
+					callback: function() {
+						document.title=$.i18n.prop('string_accounttitle');
+						$('#title_panel1v').html($.i18n.prop('string_myinfo'));
+						$('#title_panel2v').html($.i18n.prop('string_addbook'));
+						$('#title_panel3v').html($.i18n.prop('string_changepwd'));
+						$('#title_tel').html($.i18n.prop('string_tel'));
+						$('#title_email').html($.i18n.prop('string_email'));
+						$('#title_uname').html($.i18n.prop('string_uname'));
+						$('#title_gender').html($.i18n.prop('string_gender'));
+						$('#title_birthday').html($.i18n.prop('string_birthday'));
+						$('#datepicker').html($.i18n.prop('string_btnchange'));
+						$('[name="btn_savecha"]').val($.i18n.prop('string_btnsavecha'));
+						$('#label_male').html($.i18n.prop('string_male'));
+						$('#label_female').html($.i18n.prop('string_female'));
+						$('#title_addr').html($.i18n.prop('string_addr'));
+						$('#old_pwd').html($.i18n.prop('string_oldpwd'));
+						$('#new_pwd').html($.i18n.prop('string_newpwd'));
+						$('#con_pwd').html($.i18n.prop('string_conpwd'));
+						$('#addr').attr('placeholder',$.i18n.prop('string_addrplace'));
+						$('#tel').attr('placeholder',$.i18n.prop('string_telplace'));
+						$('#email').attr('placeholder',$.i18n.prop('string_emailplace'));
+						$('#uname').attr('placeholder',$.i18n.prop('string_unameplace'));
+						$('#birthday').attr('placeholder',$.i18n.prop('string_birthdayplace'));
+						$('#opwd').attr('placeholder',$.i18n.prop('string_opwdplace'));
+						$('#npwd').attr('placeholder',$.i18n.prop('string_npwdplace'));
+						$('#cpwd').attr('placeholder',$.i18n.prop('string_cpwdplace'));
+					}
+				}); 
+			}
+			loadProperties(userLang);
+			loadProperties_global(userLang);
+			
+			AdjustFooterHeight();
+			BindCommonBtn();
+			// bind local button
+			$("#zh_CN").on('click',function(event){	
+				userLang="zh_CN";
+				loadProperties(userLang);
+				loadProperties_global(userLang);
+			});
+			$("#en_US").on('click',function(event){	
+				userLang="en_US";
+				loadProperties(userLang);
+				loadProperties_global(userLang);
+			});
+			
+			async.waterfall([
+				async.apply(QueryUser,useruuid,op_query_userinfo),// query user info
+				LoadUser,// load user info
+			],function (err, result) {
+			});
+			
+			// datepicker
+			var nowTemp = new Date();
+			var now = new Date(nowTemp.getFullYear(), nowTemp.getMonth(), nowTemp.getDate(), 0, 0, 0, 0);
+			$('#datepicker').fdatepicker({
+					onRender: function (date) {
+						return date.valueOf() > now.valueOf() ? 'disabled' : '';
+					}
+				}).on('changeDate', function (ev) {
+					$('#birthday').val($('#datepicker').data('date'));
+					$('#datepicker').fdatepicker('hide');
+				});
+				
+		});//end ready
+	
+		function LoadUser(op_re,callback){
+			console.log(op_re);
+			$("#tel").val(op_re["phone"]);
+			$("#email").val(op_re["email"]);
+			$("#uname").val(op_re["username"]);
+			var $radios = $('input:radio[name=gender]');
+			if(op_re["gender"]==="male"){$radios.filter('[value=male]').prop('checked', true);}
+			else if(op_re["gender"]==="female"){$radios.filter('[value=female]').prop('checked', true);}
+			if(op_re["birthday"] != "")$("#birthday").val(RFC2822toYMD(op_re["birthday"]));
+			
+			if (typeof callback !== "undefined") {
+				callback(null);
+			}
+		}
+		
+		function LoadAddrTab(callback){
+		////////////////////////////////////////////////////////////////
+		//     should copy from function LoadOrderTab in index.html
+		////////////////////////////////////////////////////////////////
+		}	
+	
+		
+		$(function(){
+			// update user info
+			$('#updform').on('submit', function(event){
+				// validation code here
+				event.preventDefault();
+				$('#outtipinfo').html('<div id="tipinfo" class="tip_zq"></div>');// clear tip
+				var tel=$('#tel').val();
+				var email=$('#email').val();
+				var uname=$('#uname').val();
+				var gender = $('input[name=gender]:checked', '#updform').val();
+				var birthday = YMDtoRFC2822($('#birthday').val());
+				// add param
+				var data={};
+				data.action="update";
+				data.uuid=useruuid;
+				data.phone=tel;
+				data.email=email;
+				data.username=uname;
+				data.gender=gender;
+				data.birthday=birthday;
+				$.ajax({ 
+					url: "/user",
+					type: 'POST',
+					data: data,
+					success: function(re){
+						console.log(re);
+						var re = JSON.parse(re);
+						if(re.result=="true"){
+							$('#tipinfo').before('<div class="tip_zq">Update successed!</div>');
+							return;
+						}
+						// false, reasons:
+						$('#tipinfo').before('<div class="tip_zq">'+re.reasons+'</div>');
+					},
+					error: function() {
+						console.log("error");
+					}
+				});
+  			});
+
+			// update user password
+			$('#addrform').on('submit', function(event){
+				// validation code here
+				event.preventDefault();
+				$('#outtipaddr').html('<div id="tipaddr" class="tip_zq"></div>');// clear tip
+				var opwd=$('#opwd').val();
+				var npwd=$('#npwd').val();
+				var cpwd=$('#cpwd').val();
+				// check param
+				if(!(npwd===cpwd)){
+					$('#tipaddr').before('<div class="tip_zq">Password is not consistent.</div>');
+					return;
+				}
+				// add param
+				var data={};
+				data.action="update";
+				data.uuid=useruuid;
+				data.password=npwd;
+				data.oldpassword=opwd;
+				$.ajax({ 
+					url: "/user",
+					type: 'POST',
+					data: data,
+					success: function(re){
+						console.log(re);
+						var re = JSON.parse(re);
+						if(re.result=="true"){
+							$('#tipaddr').before('<div class="tip_zq">Update successed!</div>');
+							return;
+						}
+						// false, reasons:
+						$('#tipaddr').before('<div class="tip_zq">'+re.reasons+'</div>');
+					},
+					error: function() {
+						console.log("error");
+					}
+				});
+  			});
+
+			// update user password
+			$('#pwdform').on('submit', function(event){
+				// validation code here
+				event.preventDefault();
+				$('#outtippwd').html('<div id="tippwd" class="tip_zq"></div>');// clear tip
+				var opwd=$('#opwd').val();
+				var npwd=$('#npwd').val();
+				var cpwd=$('#cpwd').val();
+				// check param
+				if(!(npwd===cpwd)){
+					$('#tippwd').before('<div class="tip_zq" id="notconsistent"></div>');
+					loadProperties_errordynamic(userLang);
+					return;
+				}
+				// add param
+				var data={};
+				data.action="update";
+				data.uuid=useruuid;
+				data.password=npwd;
+				data.oldpassword=opwd;
+				$.ajax({ 
+					url: "/user",
+					type: 'POST',
+					data: data,
+					success: function(re){
+						console.log(re);
+						var re = JSON.parse(re);
+						if(re.result=="true"){
+							$('#outtippwd').before('<div class="tip_zq" id="upd_ok"></div>');
+							loadProperties_okdynamic(userLang);
+							return;
+						}
+						// false, reasons:
+						switcherror(re);
+						loadProperties_errordynamic(userLang);
+					},
+					error: function() {
+						console.log("error");
+					}
+				});
+  			});
+
+		});
+	
+	</script>
+<!-- Other JavaScript at the bottom -->
+
+</head>
+
+<body class="body_zq">
+
+<div id="container">
+
+<div id="banner">
+	<div class="title-bar button_zq" data-responsive-toggle="topbar" data-hide-for="medium">
+		<button class="menu-icon" type="button" data-toggle></button>
+		<div class="title-bar-title">Menu</div>
+	</div>
+		
+	<div class="row">
+		<div class="top-bar" id="topbar">
+			<div class="top-bar-left">
+				<ul class="dropdown menu" data-dropdown-menu>
+					<li class="menu-text text_zq" id="fsw"></li>
+					<li><a href="index.html" class="link_zq" id="myindex"></a></li>
+					<li>
+						<a href="#" class="link_zq active" id="myaccount"></a>
+						<ul class="menu vertical">
+						  <li><a href="#" class="link_zq active" id="perprof"></a></li>
+						</ul>
+					</li>
+				</ul>
+			</div>
+			<div class="top-bar-right">
+				<ul class="dropdown menu" data-dropdown-menu>
+					<li>
+						<a href="#" class="link_zq" id="lang"></a>
+						<ul class="menu vertical">
+						  <li><a href="#" class="link_zq" id="en_US">English (US)</a></li>
+						  <li><a href="#" class="link_zq" id="zh_CN">中文 (简体) </a></li>
+						</ul>
+					</li>
+					<li><a href="#" class="link_zq" id="logout"></a></li>
+				</ul>
+			</div>
+		</div>
+	</div>
+
+			<!--
+			<div class="top-bar-right">
+				<ul class="menu" id="menut">
+					<li id="searchli"><input class="input_zq" id="searchin" type="search" placeholder="Search"></li>
+					<li><button type="button" class="button">Search</button></li>
+				</ul>
+			</div>
+			-->
+
+</div>
+
+<hr />
+	
+<div id="content">
+
+	<div class="row collapse">
+	  <div class="medium-3 columns">
+		<ul class="tabs vertical bgc-green" id="example-vert-tabs" data-tabs>
+		  <li class="tabs-title is-active"><a href="#panel1v" aria-selected="true" id="title_panel1v"></a></li>
+		  <li class="tabs-title"><a href="#panel2v" id="title_panel2v"></a></li>
+		  <li class="tabs-title"><a href="#panel3v" id="title_panel3v"></a></li>
+		</ul>
+	  </div>
+	  <div class="medium-9 columns">
+		<div class="tabs-content vertical" data-tabs-content="example-vert-tabs">
+		
+		  <div class="tabs-panel is-active" id="panel1v">
+			<div class="row">   
+				<div class="medium-8 medium-centered large-6 large-centered columns">
+					
+					<form method="post" target="_self" name="updform" id="updform">
+						<div class="row column">
+
+							<label><h6 class="title_zq" id="title_tel"></h6>
+							<input class="input_zq" type="text" id="tel" name="tel" value="">
+							</label>   
+
+							<label><h6 class="title_zq" id="title_email"></h6>
+							<input class="input_zq" type="text" id="email" name="email" value="">
+							</label>   
+							
+							<label><h6 class="title_zq" id="title_uname"></h6>
+							<input class="input_zq" type="text" id="uname" name="uname" value="">
+							</label>	
+							
+							<div class="row">
+							<label>
+								<div class="medium-4 large-4 columns">
+									<h6 class="title_zq" id="title_gender"></h6>
+								</div> 	
+								<div class="medium-8 large-8 columns title_zq-right">
+									<input type="radio" name="gender" value="male" id="male"><label for="male" id="label_male"></label>
+									<input type="radio" name="gender" value="female" id="female"><label for="female" id="label_female"></label>
+								</div> 	
+							</label>
+							</div> 	
+							
+							<label><h6 class="title_zq" id="title_birthday"></h6>
+								<div class="row">
+									<div class="large-9 medium-9 small-9 columns close_right">
+										<input class="input_zq" type="text" id="birthday">
+									</div>
+									<div class="large-3 medium-3 small-3 columns close_left">
+										<a href="#" class="link_zq button_zq close_left close_up" id="datepicker" data-date-format="yyyy-mm-dd"></a>
+									</div>
+								</div>
+							</label>		
+
+							<div>
+							<input class="link_zq button_zq expand_down" type="submit" name="btn_savecha" value="">
+							</div>  
+							<div  id="outtipinfo">
+								<div id="tipinfo"></div>   
+							</div>				
+							
+						</div> 
+					</form>		
+
+				</div>
+			</div>
+		  </div>
+		  
+		  <div class="tabs-panel" id="panel2v">
+			<div class="row">   
+				<div class="medium-8 medium-centered large-6 large-centered columns">
+					
+					<form method="post" target="_self" name="addrform" id="addrform">
+						<div class="row column">
+							
+							<label><h6 class="title_zq" id="title_addr"></h6>
+							<input class="input_zq" type="text" id="addr" name="addr" value="">
+							</label>					   
+
+							<div>
+							<input class="link_zq button_zq expand_down" type="submit" name="btn_savecha" value="">
+							</div>  
+							<div  id="outtipaddr">
+								<div id="tipaddr"></div>   
+							</div>				
+							
+						</div> 
+					</form>		
+
+				</div>
+			</div>
+		  </div>
+		  
+		  <div class="tabs-panel" id="panel3v">
+			<div class="row">   
+				<div class="medium-8 medium-centered large-6 large-centered columns">
+					
+					<form method="post" target="_self" name="pwdform" id="pwdform">
+						<div class="row column">	
+							
+							<label><h6 class="title_zq" id="old_pwd"></h6>
+							<input class="input_zq" type="password" id="opwd" name="opwd">
+							</label>		
+							
+							<label><h6 class="title_zq" id="new_pwd"></h6>
+							<input class="input_zq" type="password" id="npwd" name="npwd">
+							</label>			  
+						
+							<label><h6 class="title_zq" id="con_pwd"></h6>
+							<input class="input_zq" type="password" id="cpwd" name="cpwd">
+							</label>
+
+							<div>
+							<input class="link_zq button_zq expand_down" type="submit" name="btn_savecha" value="">
+							</div>  
+							<div  id="outtippwd">
+								<div id="tippwd"></div>   
+							</div>				
+							
+						</div> 
+					</form>		
+
+				</div>
+			</div>
+		  </div>
+		  
+		</div>
+	  </div>
+	</div>
+
+
+</div>
+<!--end of content-->
+
+<div id="footer">
+	<div class="row">
+		<div class="medium-6 columns">
+			<ul class="menu">
+				<li><a href="#" class="link_zq" id="home"><i class="fi-home"></i></a></li>
+				<li><a href="#" class="link_zq" id="contact"><i class="fi-torso"></i></a></li>
+				<li><a href="#" class="link_zq" id="about"><i class="fi-info"></i></a></li>
+			</ul>
+		</div>
+		<div class="medium-6 columns">
+			<ul class="menu float-right">
+				<li class="menu-text">Copyright © meidaitech, Co.Ltd. 2016</li>
+			</ul>
+		</div>
+	</div>
+</div>
+<!--end of footer-->
+
+</div>
+<!--end of container-->
+
+  <!-- JavaScript at the bottom for fast page loading -->
+
+    <script src="js/vendor/what-input.js"></script>
+    <script src="js/vendor/foundation.min.js"></script>
+    <script src="js/vendor/foundation-datepicker.js"></script>
+    <script src="js/app.js"></script>
+	<script type="text/javascript" src="js/venders/zcom.js"></script>
+
+
+  <!-- end scripts-->
+
+
+</body>
+</html>

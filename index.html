@@ -1,0 +1,473 @@
+﻿<!doctype html>
+<!--[if lt IE 7 ]> <html class="no-js ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]>    <html class="no-js ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]>    <html class="no-js ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--> <html class="no-js" lang="en" dir="ltr"><!--<![endif]-->
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="x-ua-compatible" content="ie=edge">
+	<meta name="description" content="MEIDAI">
+	<meta name="author" content="MEIDAI">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+	<!-- CSS file -->
+	<link rel="stylesheet" href="css/foundation.min.css">
+	<link rel="stylesheet" href="css/app.css">
+	<link rel="stylesheet" href="css/login_zq.css">
+	<link rel="stylesheet" href="css/index_zq.css">
+	<link rel='stylesheet' href='http://cdnjs.cloudflare.com/ajax/libs/foundicons/3.0.0/foundation-icons.css' type='text/css'>
+	<link rel="stylesheet" href="css/magnific-popup.css">
+	<!-- JS file -->
+	<script src="js/vendor/async.min.js"></script>	
+	<script src="js/jquery/jquery.js"></script>
+	<script src="js/jquery/jquery.validate.js"></script>
+	<script src="js/jquery/jquery-qrcode-0.14.0.min.js"></script>
+	<script src="js/jquery/jquery.magnific-popup.min.js"></script>
+	<script src="js/jquery/jquery.i18n.properties.js"></script>
+	<script src="js/vendor/fswear_patch.js"></script>
+	<script src="js/vendor/fswear.js"></script>
+	<script src="js/vendor/cookies.js"></script>
+	<script src="js/vendor/common_zq.js"></script>	
+
+	<script type="text/javascript"> 
+		// check cookie
+		useruuid = getCookie("useruuid");
+		var logintime=new Date(getCookie("logintime"));
+		var now=new Date();
+		if(useruuid==null || now.getTime()-logintime.getTime()>24 * 60 * 60 * 1000){
+			console.log('index.html: no useruuid in cookie or expired, redirect to login.html'); 
+			window.location='login.html';
+		}
+		// local page variables
+		var op_query_userinfo=["phone","email","username","orders"];
+		var op_query_order=["createdate","head","station","appointmentdate"];
+		var op_update_order=["appointmentdate","station"];
+
+		$(document).ready(function(){
+			// i18n
+			function loadProperties(userLang){ 
+				jQuery.i18n.properties({
+					name:'strings',
+					path:'resources/i18n/',
+					mode:'map',
+					language:userLang,
+					callback: function() {
+						document.title=$.i18n.prop('string_indextitle');
+						$('#allord').html($.i18n.prop('string_allord'));
+						$('#toscan').html($.i18n.prop('string_toscan'));
+						$('#todeal').html($.i18n.prop('string_todeal'));
+						$('#accomp').html($.i18n.prop('string_accomp'));
+						$('#cancel').html($.i18n.prop('string_cancel'));
+						$('#neworder').html($.i18n.prop('string_btnneworder'));
+						$('#label_cancelappo').html($.i18n.prop('string_cancelappo'));
+						$('#btn_justcancel').html($.i18n.prop('string_justcancel'));
+						$('#btn_dontcancel').html($.i18n.prop('string_dontcancel'));
+					}
+				}); 
+			}
+			loadProperties(userLang);
+			loadProperties_global(userLang);
+			AdjustFooterHeight();
+			BindCommonBtn();
+			// bind local button
+			$("#zh_CN").on('click',function(event){	
+				loadProperties("zh_CN");
+				loadProperties_global("zh_CN");
+				loadProperties_dynamic("zh_CN");
+			});
+			$("#en_US").on('click',function(event){	
+				loadProperties("en_US");
+				loadProperties_global("en_US");
+				loadProperties_dynamic("en_US");
+			});
+			//-Button: No order, create new order
+			$("button[name='neworder']").on('click', function(event){
+				setCookie_exMin("orderuuidin",$(event.target).attr("value"),60);
+				window.location = "order.html";
+			});
+			// waterfall(tasks, [callback]), Runs the tasks array of functions in series
+			async.waterfall([
+				async.apply(QueryUser,useruuid,op_query_userinfo),// query user info
+				LoadUser,// load user info
+				LoadOrderTab,// load order info
+				function (callback){
+					setTimeout(BindBtns,500);// set timeout to bind buttons
+					setTimeout("loadProperties_dynamic(userLang);",500);
+					setTimeout(cancelpopup,500);
+					callback(null);
+				},
+			],function (err, result) {
+			});
+			
+			
+		});//end ready
+		
+		function cancelpopup(callback){
+			$('.popup-with-form').magnificPopup({
+				type: 'inline',
+				preloader: false,
+				focus: '#btn_dontcancel',
+				// When elemened is focused, some mobile browsers in some cases zoom in
+				// It looks not nice, so we disable it:
+				callbacks: {
+					beforeOpen: function() {
+						if($(window).width() < 700) {
+							this.st.focus = false;
+						} else {
+							this.st.focus = '#btn_dontcancel';
+						}
+					},
+				}
+			});
+			$("#btn_justcancel").on('click',function(event){
+				event.preventDefault();
+				var data={};
+				data.action="cancel";
+				data.uuid=$("#btn_justcancel").val();
+				$.ajax({ 
+					url: "/order",
+					type: 'POST',
+					data: data,
+					success: function(re){
+						var re = JSON.parse(re);
+						console.log(re);
+						if(re.result=="true"){
+							$('#outtipcancel').html('<div class="" id="cancel_ok"></div><div class="tip_zq" id="tipcancel"></div>');
+							loadProperties_okdynamic(userLang);
+							setTimeout('window.location = "index.html"',1000);
+							return;
+						}
+						// clear all tips
+						$('#outtipcancel').html('<div id="tipcancel" class=""></div>');
+						switcherror(re,"tipcancel","");
+						loadProperties_errordynamic(userLang);
+					},
+					error: function(error) {
+						console.log("resetpassword: error");
+						console.log(error);
+					}
+				});
+			});
+			$("#btn_dontcancel").on('click',function(event){
+				$.magnificPopup.close();
+			});
+			if (typeof callback !== "undefined") {
+				callback(null);
+			}
+		}
+		
+		function loadProperties_dynamic(userLang,callback){ 
+			jQuery.i18n.properties({
+				name:'strings',
+				path:'resources/i18n/',
+				mode:'map',
+				language:userLang,
+				callback: function() {
+					//$('.th1').html($.i18n.prop('string_createdate'));
+					$('.th1').html($.i18n.prop('string_ordernumber'));
+					$('.td1').html('<P>'+$.i18n.prop('string_appodate')+'</P><P>'+$.i18n.prop('string_station')+'</P>');
+					$("button[name='genqr']").html($.i18n.prop('string_btngenqr'));
+					$("button[name='scanned']").html($.i18n.prop('string_scanned'));
+					$("button[name='appointment']").html($.i18n.prop('string_btnappo'));
+					$("button[name='updateorder']").html($.i18n.prop('string_btnupd'));
+					$(".button_ca").html($.i18n.prop('string_btncan'));
+					$("p[name='CambridgeCommune']").html($.i18n.prop('string_CambridgeCommune'));
+					$("p[name='Cambridge commune']").html($.i18n.prop('string_CambridgeCommune'));// history problem
+					$("p[name='notappoint']").html($.i18n.prop('string_notappoint'));
+				}
+			}); 
+			if (typeof callback !== "undefined") {
+				callback(null);
+			}
+		}
+					
+		function BindBtns(callback){
+			//-Button: Generate QR
+			$("[name='genqr']").on('click', function(event){
+				var qrstring;
+				if(userLang.indexOf("zh")!=-1){
+					qrstring = "美戴";
+				}else{
+					qrstring = "MEIDAI";
+				}
+				$("#my-popup").empty().qrcode({
+					render: "image",
+					label: qrstring,
+					ecLevel: 'Q',
+					mode:2,
+					radius: 0.4,
+					quiet: 1,
+					text: $(event.target).parent().parent().parent().attr("id")
+				});
+			});
+			// Initializing popup
+			$("[name='genqr']").magnificPopup({
+				items: [{
+					src: '#my-popup', // CSS selector of an element on page that should be used as a popup
+					type: 'inline'
+				}],
+				type: 'image' // this is a default type
+			});			
+			//-Button: Appointment
+			$("button[name='appointment']").on('click', function(event){
+				setCookie_exMin("orderuuidin",$(event.target).attr("value"),60);
+				window.location = "order.html";
+			});			
+			//-Button: Update
+			$("button[name='updateorder']").on('click', function(event){
+				setCookie_exMin("orderuuidin",$(event.target).attr("value"),60);
+				window.location = "order.html";
+			});			
+			//-Button: Cancel
+			$(".button_ca").on('click', function(event){
+				$("#btn_justcancel").val($(event.target).attr("value"));
+			});
+			if (typeof callback !== "undefined") {
+				callback(null);
+			}
+		}
+	
+		function LoadUser(op_re,callback){
+			$("#uinfo").html("<span>"+op_re['username']+"</span>");
+			if (typeof callback !== "undefined") {
+				callback(null);
+			}
+		}
+	
+		function LoadOrderTab(callback){
+			console.log("orderuuid.length="+orderuuid.length);
+			// change name of index [i --> order_index] because of the scope of var among different functions
+			for(order_index=orderuuid.length-1;order_index>=0;order_index--){
+				var orderuuidin=orderuuid[order_index];
+				async.waterfall([
+					async.apply(QueryOrder,orderuuidin,op_query_order,order_index),// query order infos
+					function(op_re, orderuuidin, order_index, callback){// load orders into table
+						// add parm
+						/*
+						var createdate;
+						createdate = new Date(op_re.createdate).yyyymmdd() +" "+ new Date(op_re.createdate).hhmm();
+						*/
+						var ordernumber=orderuuid.length-order_index;
+						
+						var state;
+						if(op_re.appointmentdate==""){state = "to appointment";}
+						else if(op_re.head==""){state = "to scan";}
+						else {state = "to deal";}
+						
+						var appointmentdate;
+						if(op_re.appointmentdate==""){appointmentdate = "notappoint";}
+						else{appointmentdate = new Date(op_re.appointmentdate).yyyymmdd() +" "+ new Date(op_re.appointmentdate).hhmm();}
+						//else{appointmentdate = new Date(op_re.appointmentdate).yyyymmdd() +" "+ new Date(op_re.appointmentdate).day() +" "+ new Date(op_re.appointmentdate).hhmm();}
+						
+						var station;
+						if(op_re.station==""){station = "";}
+						else{station = op_re.station;}
+						
+						var strbns="";
+						if(state == "to deal"){
+							strbns+='<br><button class="link_zq button_zq button_ap" type="button" name="scanned" value="'+orderuuidin+'">'+String.fromCharCode(0x1A)+'</button>';
+						}else{
+							if(op_re.appointmentdate==""){strbns+='<br><button class="link_zq button_zq button_ap" type="button" name="appointment" value="'+orderuuidin+'">'+String.fromCharCode(0x1A)+'</button>';}
+							else{
+								strbns+='<br><button class="link_zq button_zq button_up" type="button" name="updateorder" value="'+orderuuidin+'">'+String.fromCharCode(0x1A)+'</button>';
+							}
+							strbns+='<br><a class="link_zq button_zq button_ca popup-with-form" href="#div_cancel" value="'+orderuuidin+'">'+String.fromCharCode(0x1A)+'</a>';
+						}
+						
+						
+						// append table
+						var table = $('<table></table>').addClass('hover').attr("id",orderuuidin);
+						var thead = $('<thead></thead>').addClass('thead');
+						table.append(thead);
+						var tr = $('<tr></tr>').addClass('tr');
+						thead.append(tr);
+						
+						var th = $('<th></th>').addClass('th1');
+						tr.append(th);
+						//var th = $('<th></th>').addClass('th2').text(createdate);
+						var th = $('<th></th>').addClass('th2').text(ordernumber);
+						tr.append(th);
+						var th = $('<th></th>').addClass('th3').text(state).attr("name","genqr");
+						tr.append(th);
+						
+						var tbody = $('<tbody></tbody>').addClass('tbody');
+						table.append(tbody);
+						var tr = $('<tr></tr>').addClass('tr');
+						tbody.append(tr);
+						
+						var td = $('<td></td>').addClass('td1').append('<p>&#x1A;</p><p>&#x1A;</p>');
+						tr.append(td);
+						var td = $('<td></td>').addClass('td2').append('<p name="'+appointmentdate+'">'+appointmentdate+'</p><p name="'+station+'"></p>');
+						tr.append(td);
+						var td = $('<td></td>').addClass('td3').append(strbns);
+						tr.append(td);
+
+						if(state == "to scan"){// this 'if' statement must be laid before table_allorder
+							var table_l = table.clone();
+							$('#table_toscan').append(table_l);
+						}
+						if(state == "to deal"){// this 'if' statement must be laid before table_allorder
+							var table_l = table.clone();
+							$('#table_todeal').append(table_l);
+						}
+						$('#table_allorder').append(table);
+					},
+				],function (err, result) {
+				});
+			}
+	
+			if (typeof callback !== "undefined") {
+				callback(null);
+			}
+		}	
+	
+	</script>
+<!-- Other JavaScript at the bottom -->
+
+</head>
+
+<body class="body_zq">
+
+<div id="container">
+
+<div id="banner">
+	<div class="title-bar button_zq" data-responsive-toggle="topbar" data-hide-for="medium">
+		<button class="menu-icon" type="button" data-toggle></button>
+		<div class="title-bar-title">Menu</div>
+	</div>
+		
+	<div class="row">
+		<div class="top-bar" id="topbar">
+			<div class="top-bar-left">
+				<ul class="dropdown menu" data-dropdown-menu>
+					<li class="menu-text text_zq" id="fsw"></li>
+					<li><a href="#" class="link_zq active" id="myindex"></a></li>
+					<li>
+						<a href="account.html" class="link_zq" id="myaccount"></a>
+						<ul class="menu vertical">
+						  <li><a href="account.html" class="link_zq" id="perprof"></a></li>
+						</ul>
+					</li>
+				</ul>
+			</div>
+			<div class="top-bar-right">
+				<ul class="dropdown menu" data-dropdown-menu>
+					<li>
+						<a href="#" class="link_zq" id="lang"></a>
+						<ul class="menu vertical">
+						  <li><a href="#" class="link_zq" id="en_US">English (US)</a></li>
+						  <li><a href="#" class="link_zq" id="zh_CN">中文 (简体) </a></li>
+						</ul>
+					</li>
+					<li><a href="#" class="link_zq" id="logout"></a></li>
+				</ul>
+			</div>
+		</div>
+	</div>
+	
+</div>
+
+<hr />
+
+<div id="content">
+
+    <div class="row">
+		<div class="medium-4 large-4 columns">
+
+			<div class="temp"><br/>
+				<span id='hiuser'></span>
+				<span id="uinfo"></span>
+			</div>
+
+		</div>
+		
+		<div class="medium-4 large-4 columns">
+			
+
+		</div>
+		
+		<div class="medium-4 large-4 columns">
+			<div class="row">
+				<button class="link_zq button_zq" type="button" name="neworder" id="neworder" value="">&#x1A;</button>
+			</div>
+			
+			<div id="my-popup" class="mfp-hide white-popup">
+			  Inline popup
+			</div>
+		</div>
+    </div>
+	
+
+	<hr />
+
+	<div class="row">
+		<div class="medium-12 medium-centered large-12 large-centered columns">	
+			<ul class="tabs" data-tabs id="example-tabs">
+				<li class="tabs-title is-active"><a href="#panel1" aria-selected="true" id="allord"></a></li>
+				<li class="tabs-title"><a href="#panel2" id="toscan"></a></li>
+				<li class="tabs-title"><a href="#panel3" id="todeal"></a></li>
+			</ul>
+			<div class="tabs-content input_zq" data-tabs-content="example-tabs">
+				<div class="tabs-panel is-active" id="panel1">
+					<div id="table_allorder"></div>
+				</div>
+				<div class="tabs-panel" id="panel2">
+					<div id="table_toscan"></div>
+				</div>
+				<div class="tabs-panel" id="panel3">
+					<div id="table_todeal"></div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div id="div_cancel" class="mfp-hide white-popup-block">
+		<div class="row">
+			<div class="small-10 small-centered medium-6 medium-centered large-6 large-centered columns">		
+				<h4 class="text-center" id="label_cancelappo"></h4>
+				<button class="link_zq button_zq button_ca" id="btn_justcancel">&#x1A;</button>
+				<button class="link_zq button_zq button_ap" id="btn_dontcancel">&#x1A;</button>
+				<div id="outtipcancel">
+					<div id="tipcancel">&#x1A;</div> 
+				</div>
+			</div>
+		</div>
+	</div>
+
+</div>
+<!--end of content-->
+
+<div id="footer">
+	<div class="row">
+		<div class="medium-6 columns">
+			<ul class="menu">
+				<li><a href="#" class="link_zq" id="home"><i class="fi-home"></i></a></li>
+				<li><a href="#" class="link_zq" id="contact"><i class="fi-torso"></i></a></li>
+				<li><a href="#" class="link_zq" id="about"><i class="fi-info"></i></a></li>
+			</ul>
+		</div>
+		<div class="medium-6 columns">
+			<ul class="menu float-right">
+				<li class="menu-text">Copyright © meidaitech, Co.Ltd. 2016</li>
+			</ul>
+		</div>
+	</div>
+</div>
+<!--end of footer-->
+
+</div>
+<!--end of container-->
+
+  <!-- JavaScript at the bottom for fast page loading -->
+
+    <script src="js/vendor/what-input.js"></script>
+    <script src="js/vendor/foundation.min.js"></script>
+    <script src="js/app.js"></script>
+	<script type="text/javascript" src="js/venders/zcom.js"></script>
+
+
+  <!-- end scripts-->
+
+
+</body>
+</html>

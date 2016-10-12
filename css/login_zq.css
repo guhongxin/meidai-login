@@ -1,0 +1,86 @@
+.body_zq{
+
+	text-align: center;
+	vertical-align: middle;
+}
+
+.outer {
+    display: table;
+    position: absolute;
+    height: 80%;
+    width: 100%;
+}
+.middle {
+    display: table-cell;
+    vertical-align: middle;
+}
+.inner {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.text-center{
+	text-align: center;
+}
+.text_zq{
+    color: #C7EDCC;
+	background-color: #292c2f;
+	text-align: left;
+	margin: 1em 0 0;
+}
+.input_zq{
+    color: #292c2f;
+	background-color: #C7EDCC;
+	text-align: left;
+	margin: 0;
+	}
+.tip_zq{
+    color: #FFFF80;
+	background-color: #292c2f;
+	text-align: left;
+	margin: 0;
+	}
+.link_zq{
+    color: #C7EDCC;
+	background-color: #292c2f;
+	cursor: pointer;
+	-webkit-appearance: none;
+	transition: background-color 0.25s ease-out, color 0.25s ease-out;
+	}
+.link_zq:hover, .link_zq:focus {
+	color:#fff;
+	}
+[data-whatinput='mouse'] .link {
+outline: 0; }
+
+.button_zq{
+	background-color: #3d4146;
+	text-align: center;
+	vertical-align: middle;
+	line-height: 1;
+	display: inline-block;
+	border: 1px solid transparent;
+	border-radius: 3px;
+	padding: 0.85em 1em;
+	margin: 1.5rem 0 0 0;
+	width: 100%;
+	font-size: 0.9rem;
+	font-weight: bold;
+	}
+
+.inputbutton{
+	border: none;
+}
+
+.white-popup-block {
+  background: #FFF;
+  padding: 20px 30px;
+  text-align: left;
+  max-width: 650px;
+  margin: 40px auto;
+  position: relative;
+}
+
+
+}
+

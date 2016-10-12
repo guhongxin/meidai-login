@@ -1,0 +1,49 @@
+.title_zq{
+	text-align: left; 
+	margin: 1em 0 0;
+}
+
+.title_zq-right{
+	text-align: right; 
+	margin: 1em 0 0;
+}
+
+.button_zq{
+	background-color: #cacaca;
+}
+	
+.close_right{
+	padding-right: 0;
+}
+	
+.close_left{
+	padding-left: 0.5em;
+}
+	
+.close_up{
+	margin: 0;
+}
+	
+.expand_down{
+	margin-bottom: 2em;
+}
+
+.bgc-green{
+	background-color:#C7EDCC;
+}
+
+.bgc-yellow{
+	background-color:#faffbd;
+}
+
+.bgc-gray{
+	background-color:#e6e6e6;
+}
+
+.bgc-black{
+	background-color:#292c2f;
+}
+
+.tip_zq{
+    color: #C7EDCC;
+	}

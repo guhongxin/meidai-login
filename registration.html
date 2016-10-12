@@ -1,0 +1,228 @@
+<!doctype html>
+<!--[if lt IE 7 ]> <html class="no-js ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]>    <html class="no-js ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]>    <html class="no-js ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--> <html class="no-js" lang="en" dir="ltr"><!--<![endif]-->
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="x-ua-compatible" content="ie=edge">
+	<meta name="description" content="MEIDAI">
+	<meta name="author" content="MEIDAI">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+	<link rel="shortcut icon" href="img/favicon.ico">
+	<link rel="Bookmark" href="img/favicon.ico">
+
+	<link rel="stylesheet" href="css/foundation.min.css">
+	<link rel="stylesheet" href="css/app.css">
+	<link rel="stylesheet" href="css/login_zq.css">
+	<link rel="stylesheet" href="css/magnific-popup.css">
+
+	<script src="js/jquery/jquery.js"></script>
+	<script src="js/jquery/jquery.validate.js"></script>
+	<script src="js/jquery/jquery.magnific-popup.min.js"></script>
+	<script src="js/jquery/jquery.i18n.properties.js"></script>
+	<script src="js/vendor/fswear_patch.js"></script>
+	<script src="js/vendor/fswear.js"></script>
+	<script src="js/vendor/cookies.js"></script>
+	<script src="js/vendor/common_zq.js"></script>
+
+	<script type="text/javascript"> 
+
+		$(document).ready(function(){
+		
+			function loadProperties(userLang){ 
+				jQuery.i18n.properties({
+					name:'strings',
+					path:'resources/i18n/',
+					mode:'map',
+					language:userLang,
+					callback: function() {
+						document.title=$.i18n.prop('string_regtitle');
+						$('#mainnav').html($.i18n.prop('string_regisnav'));
+						$('#label_uname').html($.i18n.prop('string_uname'));
+						$('#button_regis').val($.i18n.prop('string_regis'));
+						$('#forget').html($.i18n.prop('string_forget'));
+						$('#newuser').val($.i18n.prop('string_newuser'));
+						$('#uid').attr('placeholder',$.i18n.prop('string_uidplace'));
+						$('#uname').attr('placeholder',$.i18n.prop('string_unameplace'));
+					}
+				}); 
+			}
+			loadProperties(userLang);
+			loadProperties_global(userLang);
+			
+			$("#uid").change(function(){
+				$('#outtipuid').html('<div id="tipuid" class="tip_zq"></div>');
+			});
+			
+		});//end ready
+		
+		function loadProperties_okdynamic(userLang){ 
+			jQuery.i18n.properties({
+				name:'strings',
+				path:'resources/i18n/',
+				mode:'map',
+				language:userLang,
+				callback: function() {
+					$('#reg_ok').html($.i18n.prop('string_regok'));
+					$('#nouname').html($.i18n.prop('string_nouname'));
+					$('#nopwd').html($.i18n.prop('string_nopwd'));
+					$('#jumptip').html($.i18n.prop('string_jumptip'));
+					$('#to_login').html('<a href="login.html" class=link_zq>'+$.i18n.prop('string_tologin')+'</a>');
+				}
+			}); 
+		}
+		
+		$(function(){
+			// user registration
+			$('#regform').on('submit', function(event){
+				// validation code here
+				event.preventDefault();
+				// clear all tips
+				$('#outtipuid').html('<div id="tipuid" class="tip_zq"></div>');
+				$('#outtipuname').html('<div id="tipuname" class="tip_zq"></div>');
+				$('#outtippwd').html('<div id="tippwd" class="tip_zq"></div>');
+				$('#outtipcpwd').html('<div id="tipcpwd" class="tip_zq"></div>');
+				$('#outtiptip').html('<div id="tiptip" class="tip_zq"></div>');
+				// check param
+				var uid=$('#uid').val();
+				var uname=$('#uname').val();
+				var pwd=$('#pwd').val();
+				var cpwd=$('#cpwd').val();
+				if(!uname){
+					$('#tiptip').before('<div class="tip_zq" id="nouname"></div>');
+				}
+				if(!pwd && !cpwd){
+					$('#tiptip').before('<div class="tip_zq" id="nopwd"></div>');
+				}
+				if(!(pwd===cpwd)){
+					$('#tipcpwd').before('<div class="tip_zq">Password is not consistent.</div>');
+					return;
+				}
+				// add param
+				var data={};
+				data.action="create";
+				var patt = /@/;
+				if(patt.test(uid)){
+					data.email=uid;
+				}else{
+					data.phone=uid;
+				}
+				if(pwd){
+					data.password=pwd;
+				}
+				if(uname){
+					data.username=uname;
+				}
+				$.ajax({ 
+					url: "/user",
+					type: 'POST',
+					data: data,
+					success: function(re){
+						console.log("data="+data);
+						var re = JSON.parse(re);
+						console.log(re);
+						if(re.result=="true"){
+							$('#outtiptip').before('<div class="tip_zq" id="reg_ok"></div>');
+							$('#tiptip').before('<span class="tip_zq" id="jumptip"></span>');
+							$('#tiptip').before('<span id="to_login"></span>');
+							loadProperties_okdynamic(userLang);
+							window.setTimeout("window.location='login.html'",30000); 
+							return;
+						}
+						switcherror(re);
+						loadProperties_errordynamic(userLang);
+					},
+					error: function() {
+						console.log("Registration：error");
+						console.log("data="+data);
+					}
+				});
+  			});
+
+		});
+
+	</script>
+	<!-- Other JavaScript at the bottom -->
+</head>
+
+<body class="body_zq">
+
+<div class="outer">
+<div class="middle">
+<div class="inner">
+
+	<div id="nav">
+		<nav><h1 id="mainnav">&#x1A;</h1></nav>
+		<h4 id="subnav">&#x1A;</h4>
+	</div>
+
+	<div class="row">   
+		<div class="small-10 small-centered medium-4 medium-centered large-4 large-centered columns">
+			
+			<form method="post" target="_self" name="regform" id="regform">
+				<div class="row column">
+				
+					<label for="uid" class="text_zq" id="label_uid">&#x1A;</label>
+					<input class="input_zq" type="text" id="uid" name="uid" value="" required/>
+					<div id="outtipuid">
+						<div id="tipuid"></div> 
+					</div>	    
+					
+					<label for="uname" class="text_zq" id="label_uname">&#x1A;</label>
+					<input class="input_zq" type="text" id="uname" name="uname" value=""/>
+					<div  id="outtipuname">
+						<div id="tipuname"></div> 
+					</div>						   
+					<div style="display:none">
+					<label><h6 class="text_zq">Set Password</h6>
+					<input class="input_zq" type="password" id="pwd" name="pwd" placeholder="Your password"/>
+					</label>
+					<div  id="outtippwd">
+						<div id="tippwd"></div> 
+					</div>					  
+				
+					<label><h6 class="text_zq">Cnofirm Password</h6>
+					<input class="input_zq" type="password" id="cpwd" name="cpwd" placeholder="Confirm password"/>
+					</label>
+					<div  id="outtipcpwd">
+						<div id="tipcpwd"></div>   
+					</div>
+					</div>
+
+					<div>
+					<input class="link_zq button_zq" id="button_regis" type="submit" value="&#x1A;"/>
+					</div>  
+					<div  id="outtiptip">
+						<div id="tiptip"></div>   
+					</div>
+					
+				</div> 
+			</form>
+			
+			<div id="my-popup" class="mfp-hide white-popup">
+				<div class="row">
+					<div class="medium-6 medium-centered large-6 large-centered columns">
+						<div id="inpop"></div>
+					</div>
+				</div>
+			</div>
+
+		</div>
+	</div>
+</div>
+</div>
+</div>
+
+
+
+	<!-- JavaScript at the bottom for fast page loading -->
+	<script src="js/vendor/what-input.js"></script>
+	<script src="js/vendor/foundation.min.js"></script>
+	<script src="js/app.js"></script>
+	<!-- end scripts-->
+
+
+</body>
+</html>

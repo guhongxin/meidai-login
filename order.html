@@ -1,0 +1,608 @@
+﻿<!doctype html>
+<!--[if lt IE 7 ]> <html class="no-js ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]>    <html class="no-js ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]>    <html class="no-js ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--> <html class="no-js" lang="en" dir="ltr"><!--<![endif]-->
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="x-ua-compatible" content="ie=edge">
+	<meta name="description" content="MEIDAI">
+	<meta name="author" content="MEIDAI">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+	<!-- CSS file -->
+	<link rel="stylesheet" href="css/foundation.min.css">
+	<link rel="stylesheet" href="css/app.css">
+	<link rel="stylesheet" href="css/login_zq.css">
+	<link rel="stylesheet" href="css/index_zq.css">
+	<link rel='stylesheet' href='http://cdnjs.cloudflare.com/ajax/libs/foundicons/3.0.0/foundation-icons.css' type='text/css'>
+	<link rel="stylesheet" href="css/magnific-popup.css">
+	<!-- JS file -->
+	<script src="js/vendor/async.min.js"></script>	
+	<script src="js/jquery/jquery.js"></script>
+	<script src="js/jquery/jquery.validate.js"></script>
+	<script src="js/jquery/jquery-qrcode-0.14.0.min.js"></script>
+	<script src="js/jquery/jquery.magnific-popup.min.js"></script>
+	<script src="js/jquery/jquery.i18n.properties.js"></script>
+	<script src="js/vendor/fswear_patch.js"></script>
+	<script src="js/vendor/fswear.js"></script>
+	<script src="js/vendor/cookies.js"></script>
+	<script src="js/vendor/common_zq.js"></script>
+
+	<script type="text/javascript"> 
+		// check cookie
+		useruuid = getCookie("useruuid");
+		var orderuuidin = getCookie("orderuuidin");
+		var logintime = new Date(getCookie("logintime"));
+		var now = new Date();
+		var now_date=new Date(now.toDateString());
+		if(useruuid==null || useruuid=="" || now.getTime()-logintime.getTime()>24 * 60 * 60 * 1000){
+			console.log('index.html: no useruuid in cookie or expired, redirect to login.html'); 
+			window.location='login.html';
+		}
+		var neworder=false;
+		if(orderuuidin==""){
+			console.log("orderuuidin not pass in.");
+			neworder=true;
+		}
+		var appointmentdate;
+		var appodate;
+		var appotime;
+		// local page variables
+		var op_query_userinfo=["phone","email","username","lastorder"];
+		var op_query_order=["createdate","station","appointmentdate","preconfig"];
+		var op_update_order=["appointmentdate","station"];
+		
+		$(document).ready(function(){
+		
+			function loadProperties(userLang){ 
+				jQuery.i18n.properties({
+					name:'strings',
+					path:'resources/i18n/',
+					mode:'map',
+					language:userLang,
+					callback: function() {
+						document.title=$.i18n.prop('string_ordertitle');
+						if(neworder){
+							$('#btn_order').val($.i18n.prop('string_btnorder'));
+						}else{
+							$('#btn_order').val($.i18n.prop('string_btnupdate'));
+						}
+						$("button[name='genqr']").html($.i18n.prop('string_btngenqr'));
+						$('#label_date').html($.i18n.prop('string_chodate'));
+						$('#label_time').html($.i18n.prop('string_chotime'));
+						$('#label_station').html($.i18n.prop('string_chostation'));
+						$('#location').html($.i18n.prop('string_location'));
+						$('#submitletter').val($.i18n.prop('string_submitletter'));
+						$('#label_lettering').html($.i18n.prop('string_lettering'));
+						$('#label_slotright').html($.i18n.prop('string_lableslotright'));
+						$('#label_slotleft').html($.i18n.prop('string_lableslotleft'));
+						$('#label_legs').html($.i18n.prop('string_lablelegs'));
+						$('#slotleft').attr("placeholder",$.i18n.prop('string_leftslot'));
+						$('#slotright').attr("placeholder",$.i18n.prop('string_rightslot'));
+						$('#legs').attr("placeholder",$.i18n.prop('string_legs'));
+					}
+				}); 
+			}
+			loadProperties(userLang);
+			loadProperties_global(userLang);
+			
+			// adjust footer height
+			AdjustFooterHeight();
+			
+			$("#logout").on('click',function(event){	
+				DelCookie("useruuid");
+				DelCookie("logintime");
+				DelCookie("orderuuidin");
+				window.location ="login.html";
+			});
+			$("#zh_CN").on('click',function(event){	
+				loadProperties("zh_CN");
+				loadProperties_global("zh_CN");
+			});
+			$("#en_US").on('click',function(event){	
+				loadProperties("en_US");
+				loadProperties_global("en_US");
+			});
+			
+			async.waterfall([
+				async.apply(QueryUser,useruuid,op_query_userinfo),// query user info
+				LoadUser,// load user info
+			],function (err, result) {
+			});
+			
+			if(!neworder){// query order
+				async.waterfall([
+					async.apply(QueryOrder,orderuuidin,op_query_order),
+					function(op_re, callback){// get orderuuidin info
+						appotime = op_re.appointmentdate;
+						appointmentdate = new Date(op_re.appointmentdate);
+						appodate = new Date(appointmentdate.toDateString());
+						//preconfig ex: SlotMessage%20QZ%0aLegMessage%20jiu%0a
+						var preconfig = op_re["preconfig"];
+						var index_slotright = preconfig.indexOf(new String("SlotMessage%20"))+new String("SlotMessage%20").length;
+						var index_slotleft = index_slotright+1;
+						var start_legs = preconfig.indexOf(new String("LegMessage%20"))+new String("LegMessage%20").length;
+						var end_legs = preconfig.length-new String("%0a").length;
+						var slotleft = preconfig.substring(index_slotright,index_slotright+1);
+						var slotright = preconfig.substring(index_slotleft,index_slotleft+1);
+						var legs = preconfig.substring(start_legs,end_legs);
+						$('#slotleft').val(slotleft);
+						$('#slotright').val(slotright);
+						$('#legs').val(legs);
+					}
+				],function (err, result) {
+				});
+			}
+			
+			// load dateselect
+			window.dates_dict={};
+			window.dates_keys={};
+			LoadTimeList();
+			
+			
+			//	========== here is debug code ============
+			$("#tt").on('click',function(event){
+						$("#choose_div").toggle();
+						$("#lettering_div").toggle();
+			});
+						
+			BindBtns();
+
+		});//end ready
+	
+		function BindBtns(callback){
+			//-Button: Generate QRcode
+			$("button[name='genqr']").on('click', function(event){
+				var qrstring;
+				if(userLang.indexOf("zh")!=-1){
+					qrstring = "美戴";
+				}else{
+					qrstring = "MEIDAI";
+				}
+				$("#my-popup").empty().qrcode({
+					render: "image",
+					label: qrstring,
+					ecLevel: 'Q',
+					mode:2,
+					radius: 0.4,
+					quiet: 1,
+					text:orderuuidin
+				});
+			});
+			// Initializing popup
+			$("button[name='genqr']").magnificPopup({
+				items: [{
+					src: '#my-popup', // CSS selector of an element on page that should be used as a popup
+					type: 'inline'
+				}],
+				type: 'image' // this is a default type
+			});
+			// onsubmit to update order
+			$('#orderform').on('submit', function(event){
+				event.preventDefault();
+				if(neworder){
+					async.waterfall([
+						CreateOrder,
+						function(orderuuidin, callback){
+							UpdateOrder(orderuuidin,op_update_order);
+						}
+					],function (err, result) {
+					});
+				}else{
+					UpdateOrder(orderuuidin,op_update_order);
+				}
+  			});
+			$('#submitletter').on('click', function(event){
+				UpdateLettering(orderuuidin);
+  			});
+			
+			if (typeof callback !== "undefined") {
+				callback(null);
+			}
+		}
+		
+		function LoadUser(op_re,callback){
+			$("#uinfo").html("<span>"+op_re['username']+"</span>");
+			if (typeof callback !== "undefined") {
+				callback(null);
+			}
+		}
+		
+		function LoadDateSelect(datelist){
+			$('#dateselect').html('');
+			for(x in datelist){
+				var local=new Date(datelist[x]);
+				//if(local<now_date)continue;
+				$('#dateselect').append($('<option>', {
+					value: datelist[x],
+					text: local.yyyymmdd()
+				}));
+			}
+			if(!neworder){
+				$('#dateselect option[value="'+appodate+'"]').attr('selected','selected');
+			}
+		}
+		
+		function LoadTimeSelect(timelist){
+			$('#timeselect').html('');
+			if($('#dateselect').val()==null){
+				$('#timeselect').val()="";
+			}else{
+				for(y in timelist){
+					var local=timelist[y];
+					$('#timeselect').append($('<option>', {
+						value: timelist[y][0],
+						text: new Date(local[0]).hhmm()+"-"+new Date(local[1]).hhmm()
+					}));
+				}
+				if(!neworder && appodate>=now_date){
+					$('#timeselect option[value="'+appotime+'"]').attr('selected','selected');
+				}
+			}
+		}
+			
+		function LoadTimeList(){
+			var data={};
+			data.action="timelist";
+			$.ajax({ 
+				url: "/common",
+				type: 'POST',
+				data: data,
+				success: function(re){
+					var re = JSON.parse(re);
+					if(re.result=="true"){
+						console.log("LoadTimeList:yes");
+						// create dates_dict, whose key is date
+						for (var i in re.time) {
+							var t = re.time[i];
+							start = t.slice(0, t.indexOf('|')).trim();
+							end = t.slice(t.indexOf('|')+1, t.length).trim();
+							start_date = new Date(start);
+							end_date = new Date(end);
+							var key=new Date(start_date.toDateString());
+							if (typeof window.dates_dict[key] === "undefined") {
+								window.dates_dict[key] = [];
+							}
+							window.dates_dict[key].push([start, end]);
+						}
+						// sort dates_keys, not dates_dict
+						window.dates_keys = Object.keys(window.dates_dict);
+						window.dates_keys.sort(function(a,b){
+							a = new Date(a);
+							b = new Date(b);
+							return a>b ? 1 : a<b ? -1 : 0;
+						})
+						// sort each dates_dict[dates_keys]
+						for(var i in dates_dict){
+							dates_dict[i].sort(function(a,b){
+								la = new Date(a[0]);
+								lb = new Date(b[0]);
+								return la>lb ? 1 : la<lb ? -1 : 0;
+							})
+						}
+						// update option
+						LoadDateSelect(window.dates_keys);
+						if(!neworder && appodate>=now_date){
+							LoadTimeSelect(window.dates_dict[appodate]);
+						}else{
+							LoadTimeSelect(window.dates_dict[window.dates_keys[0]]);
+						}
+						return true;
+					}
+					console.log("LoadTimeList:no");
+					switcherror(re);
+					loadProperties_errordynamic(userLang);
+					return false;
+				},
+				error: function() {
+					console.log("LoadTimeList:error");
+					return false;
+				}
+			});
+		}
+
+		function UpdateTimeSelect(timelist){
+			$('#timeselect').html('');
+			for(y in timelist){
+				var local=timelist[y];
+				$('#timeselect').append($('<option>', {
+					value: timelist[y][0],
+					text: new Date(local[0]).hhmm()+"-"+new Date(local[1]).hhmm()
+				}));
+			}
+		}
+	
+		function DateSelectChange(){
+			UpdateTimeSelect(window.dates_dict[$('#dateselect').val()]);
+		}
+		
+		function CreateOrder(callback){
+			var data={};
+			data.action="create";
+			data.owneruuid=useruuid;
+			$.ajax({ 
+				url: "/order",
+				type: 'POST',
+				data: data,
+				success: function(re){
+				console.log("CreateOrder: before JSON.parse re="+re);
+					var re = JSON.parse(re);
+					if(re.result=="true"){
+						console.log("CreateOrder:yes");
+						if (typeof callback !== "undefined") {
+						orderuuidin=re.uuid;// for new order
+						callback(null, orderuuidin);
+						}
+						return true;
+					}
+					console.log("CreateOrder:no");
+					console.log(re.reasons);
+					switcherror(re);
+					loadProperties_errordynamic(userLang);
+					if (typeof callback !== "undefined") {
+					orderuuidin=re.uuid;// for new order
+					callback(null, orderuuidin);
+					}
+					return false;
+				},
+				error: function() {
+					console.log("CreateOrder:error");
+					if (typeof callback !== "undefined") {
+					orderuuidin=re.uuid;// for new order
+					callback(null, orderuuidin);
+					}
+					return false;
+				}
+			});
+		}
+		
+		function ClearTips(){
+			$('#outtiptip').html('<div id="tiptip" class="tip_zq"></div>');
+		}
+		
+		function UpdateOrder(update_orderuuid,op){
+			var data={};
+			data.action="update";
+			data.uuid=update_orderuuid;
+			for(i=0;i<op.length;i++){
+				switch (op[i]) {
+					case "station":
+						data.station=$("#stationselect option:selected").val();
+						break;
+					case "appointmentdate":
+						data.appointmentdate=$("#timeselect option:selected").val();
+						break;
+					default:
+						console.log("UpdateOrder:no-such-op!");
+						return;
+				}			
+			}
+			$.ajax({ 
+				url: "/order",
+				type: 'POST',
+				data: data,
+				success: function(re){
+					var re = JSON.parse(re);
+					if(re.result=="true"){
+						if(neworder){
+							$('#outtiptip').html('<div class="tip_zq" id="ord_ok"></div><div class="tip_zq" id="tiptip"></div>');
+						}else{
+							$('#outtiptip').html('<div class="tip_zq" id="upd_ok"></div><div class="tip_zq" id="tiptip"></div>');
+						}
+						loadProperties_okdynamic(userLang);
+						
+						
+						window.setTimeout("$('#choose_div').hide();$('#lettering_div').show();ClearTips();",1000);
+						return true;
+					}
+					console.log("UpdateOrder:no");
+					console.log(re.reasons);
+					switcherror(re);
+					loadProperties_errordynamic(userLang);
+					$('#outtiptip').html('<div id="tiptip" class="tip_zq"></div>');
+					return false;
+				},
+				error: function(error) {
+					console.log("UpdateOrder:error");
+					console.log(error);
+					return false;
+				}
+			});
+		}
+
+		function UpdateLettering(update_orderuuid){
+			var slotleft=$('#slotleft').val();
+			var slotright=$('#slotright').val();
+			var legs=$('#legs').val();
+			var local_str="";
+			if(slotleft){
+				if(slotright){
+					local_str+="SlotMessage%20"+slotleft+slotright;
+				}else{
+					local_str+="SlotMessage%20"+slotleft+slotleft;
+				}
+			}else if(slotright){
+				local_str+="SlotMessage%20"+slotright+slotright;
+			}else return;//for now
+			local_str+="%0a";
+			if(legs){
+				local_str+="LegMessage%20"+legs+"%0a";
+			}
+			var data={};
+			data.action="update";
+			data.uuid=update_orderuuid;
+			data.preconfig=local_str;
+			$.ajax({ 
+				url: "/order",
+				type: 'POST',
+				data: data,
+				success: function(re){
+					var re = JSON.parse(re);
+					if(re.result=="true"){
+						if(neworder){
+							$('#outtiptip').before('<div class="tip_zq" id="ord_ok"></div>');
+						}else{
+							$('#outtiptip').before('<div class="tip_zq" id="upd_ok"></div>');
+						}
+						loadProperties_okdynamic(userLang);
+						DelCookie("orderuuidin");
+						window.setTimeout("window.location='index.html'",1000); 
+						return true;
+					}
+					console.log("UpdateOrder:no");
+					console.log(re.reasons);
+					switcherror(re);
+					loadProperties_errordynamic(userLang);
+					$('#outtiptip').html('<div id="tiptip" class="tip_zq"></div>');
+					return false;
+				},
+				error: function() {
+					console.log("UpdateOrder:error");
+					return false;
+				}
+			});
+		}
+
+	</script>
+<!-- Other JavaScript at the bottom -->
+
+</head>
+
+<body class="body_zq">
+
+<div id="container">
+
+<div id="banner">
+	<div class="title-bar button_zq" data-responsive-toggle="topbar" data-hide-for="medium">
+		<button class="menu-icon" type="button" data-toggle></button>
+		<div class="title-bar-title">Menu</div>
+	</div>
+		
+	<div class="row">
+		<div class="top-bar" id="topbar">
+			<div class="top-bar-left">
+				<ul class="dropdown menu" data-dropdown-menu>
+					<li class="menu-text text_zq" id="fsw"></li>
+					<li><a href="index.html" class="link_zq" id="myindex"></a></li>
+					<li>
+						<a href="account.html" class="link_zq" id="myaccount"></a>
+						<ul class="menu vertical">
+						  <li><a href="account.html" class="link_zq" id="perprof"></a></li>
+						</ul>
+					</li>
+				</ul>
+			</div>
+			<div class="top-bar-right">
+				<ul class="dropdown menu" data-dropdown-menu>
+					<li>
+						<a href="#" class="link_zq" id="lang"></a>
+						<ul class="menu vertical">
+						  <li><a href="#" class="link_zq" id="en_US">English (US)</a></li>
+						  <li><a href="#" class="link_zq" id="zh_CN">中文 (简体) </a></li>
+						</ul>
+					</li>
+					<li><a href="#" class="link_zq" id="logout"></a></li>
+				</ul>
+			</div>
+		</div>
+	</div>
+		
+</div>
+
+<hr/>
+
+<div id="content">
+	
+	<form method="post" target="_self" name="orderform" id="orderform">		
+		<div class="row">
+			<div class="small-10 small-centered medium-8 medium-centered large-6 large-centered columns">			
+				<div id="choose_div">
+					<div class="row">
+						<div class="small-6 medium-6 large-6 columns">
+							<label class="text_zq" for="dateselect" id="label_date"></label>
+								<select class="input_zq" id="dateselect" onchange="DateSelectChange()"></select>	
+						</div>
+						<div class="small-6 medium-6 large-6 columns">
+							<label class="text_zq" for="timeselect" id="label_time"></label>
+								<select class="input_zq" id="timeselect"></select>	
+						</div>
+					</div>			
+					<label class="text_zq" for="stationselect" id="label_station"></label>
+						<select class="input_zq" id="stationselect">
+							<option value="CambridgeCommune" id="location"></option>
+						</select>
+					<div>
+						<input class="link_zq button_zq" type="submit" id="btn_order" value="&#x1A;"/>
+					</div> 
+				</div>				
+				<div id="lettering_div" style="display:none">
+					<div class="row">
+						<div class="small-12 small-centered medium-12 medium-centered large-12 large-centered columns">
+							<label for="slotleft" class="text_zq" id="label_lettering"></label>
+						<img src="img/LetteringInstruction.jpg" alt=""/>
+						</div>
+					</div>
+					<div class="row">
+						<div class="small-4 medium-3 large-3 columns">
+							<label for="slotleft" class="text_zq" id="label_slotleft"></label>
+							<input class="input_zq" type="text" id="slotleft" name="lettering" value=""/>
+						</div>
+						<div class="small-4 medium-3 large-3 columns">
+							<label for="slotright" class="text_zq" id="label_slotright"></label>
+							<input class="input_zq" type="text" id="slotright" name="lettering" value=""/>
+						</div>
+						<div class="small-4 medium-6 large-6 columns">
+							<label for="legs" class="text_zq" id="label_legs"></label>
+							<input class="input_zq" type="text" id="legs" name="lettering" value=""/>
+						</div>
+					</div>
+					<div>
+						<input class="link_zq button_zq" type="button" id="submitletter" value="&#x1A;"/>
+					</div> 
+				</div>				
+				<div  id="outtiptip">
+					<div id="tiptip"></div>   
+				</div>				
+			</div>
+		</div>
+	</form>
+
+</div>
+<!--end of content-->
+
+<div id="footer">
+	<div class="row">
+		<div class="medium-6 columns">
+			<ul class="menu">
+				<li><a href="#" class="link_zq" id="home"><i class="fi-home"></i></a></li>
+				<li><a href="#" class="link_zq" id="contact"><i class="fi-torso"></i></a></li>
+				<li><a href="#" class="link_zq" id="about"><i class="fi-info"></i></a></li>
+				<li><a href="#" class="link_zq" id="tt"><i class="fi-rss"></i></a></li>
+			</ul>
+		</div>
+		<div class="medium-6 columns">
+			<ul class="menu float-right">
+				<li class="menu-text">Copyright © meidaitech, Co.Ltd. 2016</li>
+			</ul>
+		</div>
+	</div>
+</div>
+<!--end of footer-->
+
+</div>
+<!--end of container-->
+
+  <!-- JavaScript at the bottom for fast page loading -->
+
+    <script src="js/vendor/what-input.js"></script>
+    <script src="js/vendor/foundation.min.js"></script>
+    <script src="js/app.js"></script>
+	<script type="text/javascript" src="js/venders/zcom.js"></script>
+
+
+  <!-- end scripts-->
+
+
+</body>
+</html>

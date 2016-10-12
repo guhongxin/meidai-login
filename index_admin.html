@@ -1,0 +1,464 @@
+<!doctype html>
+<!--[if lt IE 7 ]> <html class="no-js ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]>    <html class="no-js ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]>    <html class="no-js ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!--> <html class="no-js" lang="en" dir="ltr"><!--<![endif]-->
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="x-ua-compatible" content="ie=edge">
+	<meta name="description" content="FSW">
+	<meta name="author" content="FSW">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+	<title>Index | AdminFSW</title>
+
+	<!-- CSS file -->
+	<link rel="stylesheet" href="css/foundation.min.css">
+	<link rel="stylesheet" href="css/app.css">
+	<link rel='stylesheet' href='http://cdnjs.cloudflare.com/ajax/libs/foundicons/3.0.0/foundation-icons.css' type='text/css'>
+	<link rel="stylesheet" href="css/admin_zq.css">
+	<link rel="stylesheet" href="css/dataTables.foundation.min.css">
+	<link rel="stylesheet" href="css/jquery.dataTables.min.css">
+	<!-- JS file -->
+	<script src="js/vendor/async.min.js"></script>	
+	<script src="js/jquery/jquery.js"></script>
+	<script src="js/jquery/jquery.validate.js"></script>
+	<script src="js/jquery/jquery.i18n.properties.js"></script>
+	<script src="js/jquery/jquery.dataTables.min.js"></script>
+	<script src="js/vendor/fswear_patch.js"></script>
+	<script src="js/vendor/fswear.js"></script>
+	<script src="js/vendor/cookies.js"></script>
+	<script src="js/vendor/common_zq.js"></script>	
+
+	<script type="text/javascript"> 
+	//--------------------------[begin] for debug------------------------------
+		// check cookie
+		useruuid = getCookie("useruuid");
+		var logintime=new Date(getCookie("logintime"));
+		var now=new Date();
+		if(useruuid==null || now.getTime()-logintime.getTime()>24 * 60 * 60 * 1000){
+			console.log('index.html: no useruuid in cookie or expired, redirect to login.html'); 
+			window.location='login.html';
+		}
+		// local page variables
+		var op_query_userinfo=["phone","email","username","lastorder"];
+		var op_query_order=["createdate","deals","station","appointmentdate","scandate"];
+		var op_update_order=["appointmentdate","station"];
+	//--------------------------------------------------------------------------
+
+		$(document).ready(function(){
+			// i18n
+			function loadProperties(userLang){ 
+				jQuery.i18n.properties({
+					name:'strings',
+					path:'resources/i18n/',
+					mode:'map',
+					language:userLang,
+					callback: function() {
+					}
+				}); 
+			}
+			loadProperties(userLang);
+			loadProperties_global(userLang);
+			// adjust footer height
+			AdjustFooterHeight();
+			// bind local button
+			$("#zh_CN").on('click',function(event){	
+				loadProperties("zh_CN");
+				loadProperties_global("zh_CN");
+			});
+			$("#en_US").on('click',function(event){	
+				loadProperties("en_US");
+				loadProperties_global("en_US");
+			});
+			
+	//--------------------------[begin] for debug------------------------------
+			// waterfall(tasks, [callback]), Runs the tasks array of functions in series
+			async.waterfall([
+				// query user info
+				async.apply(QueryUser,useruuid,op_query_userinfo),
+				// load user info
+				LoadUser,
+				// load order info
+				LoadOrderTab,
+				// set timeout to bind buttons
+				function (callback){
+					callback(null);
+				},
+			],function (err, result) {
+			});
+	//--------------------------------------------------------------------------
+			
+		});//end ready
+		
+		// note: use id = "outuinfo" in  index.html
+		function LoadUser(op_re,callback){
+			$("#outuinfo").html('<div id="uinfo"></div>');
+			for(i in op_query_userinfo){
+				$("#uinfo").before("<li>"+op_query_userinfo[i]+"="+op_re[op_query_userinfo[i]]+"</li>");
+			}
+			if (typeof callback !== "undefined") {
+				callback(null);
+			}
+		}
+	
+		function LoadOrderTab(callback){
+					
+			console.log("orderuuid.length="+orderuuid.length);
+			
+			var table = $('<table class="body_zq"></table>').addClass('hover');
+						var thead = $('<thead></thead>').addClass('thead');
+						table.append(thead);
+						var tr = $('<tr></tr>').addClass('tr');
+						thead.append(tr);
+						
+						var th = $('<th></th>').addClass('th1').text("th1");
+						tr.append(th);
+						var th = $('<th></th>').addClass('th2').text("th2");
+						tr.append(th);
+						var th = $('<th></th>').addClass('th3').text("th3");
+						tr.append(th);
+			
+			for(order_index=orderuuid.length-1;order_index>=0;order_index--){
+				async.waterfall([
+					// query order infos
+					async.apply(QueryOrder,order_index,op_query_order),
+					
+					// function: load orders into table
+					function(op_re, order_index, callback){
+						var orderuuidin=orderuuid[order_index];
+						
+						// add parm
+						var createdate;
+						createdate = new Date(op_re.createdate).yyyymmdd() +" "+ new Date(op_re.createdate).hhmm();
+						
+						var state;
+						if(op_re.appointmentdate==""){state = "to appointment";}
+						else if(op_re.scandate==""){state = "to scan";}
+						else {state = "other";}
+						
+						var appointmentdate;
+						if(op_re.appointmentdate==""){appointmentdate = "not appointment";}
+						else{appointmentdate = new Date(op_re.appointmentdate).yyyymmdd() +" "+ new Date(op_re.appointmentdate).hhmm();}
+						
+						var station;
+						if(op_re.station==""){station = "";}
+						else{station = op_re.station;}
+						
+						var strbns;
+						strbns='<button class="link_zq button_zq button_qr" type="button" name="genqr" value="'+orderuuidin+'">Generate QR</button>';
+						if(op_re.appointmentdate==""){strbns+='<br><button class="link_zq button_zq button_ap" type="button" name="appointment" value="'+orderuuidin+'">Appointment</button>';}
+						strbns+='<br><button class="link_zq button_zq button_up" type="button" name="updateorder" value="'+orderuuidin+'">Update</button>';
+						strbns+='<br><button class="link_zq button_zq button_ca" type="button" name="cancelorder" value="'+orderuuidin+'">Cancel</button>';
+						
+						// append table
+						
+						var tbody = $('<tbody class=""></tbody>').addClass('tbody');
+						table.append(tbody);
+						var tr = $('<tr></tr>').addClass('tr');
+						tbody.append(tr);
+						
+						var td = $('<td></td>').addClass('td1').append('<P>Appointmentdate</P><P>Station</P>');
+						tr.append(td);
+						var td = $('<td></td>').addClass('td2').append('<P>'+appointmentdate+'</P><P>'+station+'</P>');
+						tr.append(td);
+						var td = $('<td></td>').addClass('td3').append(strbns);
+						tr.append(td);
+
+					},
+				],function (err, result) {
+				});
+			}
+			$('#table_alldeal').append(table);
+	
+			if (typeof callback !== "undefined") {
+				callback(null);
+			}
+		}	
+	
+	
+	///////////////////////////////////////////////////////////////////////////////
+	//
+// Updates "Select all" control in a data table
+//
+function updateDataTableSelectAllCtrl(table){
+   var $table             = table.table().node();
+   var $chkbox_all        = $('tbody input[type="checkbox"]', $table);
+   var $chkbox_checked    = $('tbody input[type="checkbox"]:checked', $table);
+   var chkbox_select_all  = $('thead input[name="select_all"]', $table).get(0);
+
+   // If none of the checkboxes are checked
+   if($chkbox_checked.length === 0){
+      chkbox_select_all.checked = false;
+      if('indeterminate' in chkbox_select_all){
+         chkbox_select_all.indeterminate = false;
+      }
+
+   // If all of the checkboxes are checked
+   } else if ($chkbox_checked.length === $chkbox_all.length){
+      chkbox_select_all.checked = true;
+      if('indeterminate' in chkbox_select_all){
+         chkbox_select_all.indeterminate = false;
+      }
+
+   // If some of the checkboxes are checked
+   } else {
+      chkbox_select_all.checked = true;
+      if('indeterminate' in chkbox_select_all){
+         chkbox_select_all.indeterminate = true;
+      }
+   }
+}
+
+$(function (){
+
+   // Array holding selected row IDs
+   var rows_selected = [];
+   var table = $('#example').DataTable({
+      'ajax': 'https://api.myjson.com/bins/1us28',
+      'columnDefs': [{
+         'targets': 0,
+         'searchable':false,
+         'orderable':false,
+         'width':'1%',
+         'className': 'dt-body-center',
+         'render': function (data, type, full, meta){
+             return '<input type="checkbox">';
+         }
+      }],
+      'order': [1, 'asc'],
+      'rowCallback': function(row, data, dataIndex){
+         // Get row ID
+         var rowId = data[0];
+
+         // If row ID is in the list of selected row IDs
+         if($.inArray(rowId, rows_selected) !== -1){
+            $(row).find('input[type="checkbox"]').prop('checked', true);
+            $(row).addClass('selected');
+         }
+      }
+   });
+
+   // Handle click on checkbox
+   $('#example tbody').on('click', 'input[type="checkbox"]', function(e){
+      var $row = $(this).closest('tr');
+
+      // Get row data
+      var data = table.row($row).data();
+
+      // Get row ID
+      var rowId = data[0];
+
+      // Determine whether row ID is in the list of selected row IDs 
+      var index = $.inArray(rowId, rows_selected);
+
+      // If checkbox is checked and row ID is not in list of selected row IDs
+      if(this.checked && index === -1){
+         rows_selected.push(rowId);
+
+      // Otherwise, if checkbox is not checked and row ID is in list of selected row IDs
+      } else if (!this.checked && index !== -1){
+         rows_selected.splice(index, 1);
+      }
+
+      if(this.checked){
+         $row.addClass('selected');
+      } else {
+         $row.removeClass('selected');
+      }
+
+      // Update state of "Select all" control
+      updateDataTableSelectAllCtrl(table);
+
+      // Prevent click event from propagating to parent
+      e.stopPropagation();
+   });
+
+   // Handle click on table cells with checkboxes
+   $('#example').on('click', 'tbody td, thead th:first-child', function(e){
+      $(this).parent().find('input[type="checkbox"]').trigger('click');
+   });
+
+   // Handle click on "Select all" control
+   $('thead input[name="select_all"]', table.table().container()).on('click', function(e){
+      if(this.checked){
+         $('#example tbody input[type="checkbox"]:not(:checked)').trigger('click');
+      } else {
+         $('#example tbody input[type="checkbox"]:checked').trigger('click');
+      }
+
+      // Prevent click event from propagating to parent
+      e.stopPropagation();
+   });
+
+   // Handle table draw event
+   table.on('draw', function(){
+      // Update state of "Select all" control
+      updateDataTableSelectAllCtrl(table);
+   });
+    
+   // Handle form submission event 
+   $('#frm-example').on('submit', function(e){
+      var form = this;
+
+      // Iterate over all selected checkboxes
+      $.each(rows_selected, function(index, rowId){
+         // Create a hidden element 
+         $(form).append(
+             $('<input>')
+                .attr('type', 'hidden')
+                .attr('name', 'id[]')
+                .val(rowId)
+         );
+      });
+
+      // FOR DEMONSTRATION ONLY     
+      
+      // Output form data to a console     
+      $('#example-console').text($(form).serialize());
+      console.log("Form submission", $(form).serialize());
+       
+      // Remove added elements
+      $('input[name="id\[\]"]', form).remove();
+       
+      // Prevent actual form submission
+      e.preventDefault();
+   });
+});
+////////////////////////////////////////////////////////////////////////////////////////
+	
+	</script>
+<!-- Other JavaScript at the bottom -->
+
+</head>
+
+<body class="pos_zq">
+
+<div id="container">
+
+<div id="banner">
+	<div class="title-bar button_zq" data-responsive-toggle="topbar" data-hide-for="medium">
+		<button class="menu-icon" type="button" data-toggle></button>
+		<div class="title-bar-title">Menu</div>
+	</div>
+		
+	<div class="row">
+		<div class="top-bar" id="topbar">
+			<div class="top-bar-left">
+				<ul class="dropdown menu" data-dropdown-menu>
+					<li class="menu-text text_zq" id="fsw"></li>
+					<li><a href="#" class="link_zq active" id="myindex"></a></li>
+					<li>
+						<a href="#" class="link_zq" id="myaccount"></a>
+						<ul class="menu vertical">
+						  <li><a href="#" class="link_zq" id="perprof"></a></li>
+						</ul>
+					</li>
+				</ul>
+			</div>
+			<div class="top-bar-right">
+				<ul class="dropdown menu" data-dropdown-menu>
+					<li>
+						<a href="#" class="link_zq" id="lang"></a>
+						<ul class="menu vertical">
+						  <li><a href="#" class="link_zq" id="en_US">English (US)</a></li>
+						  <li><a href="#" class="link_zq" id="zh_CN">中文 (简体) </a></li>
+						</ul>
+					</li>
+					<li><a href="#" class="link_zq" id="logout"></a></li>
+				</ul>
+			</div>
+		</div>
+	</div>
+	
+</div>
+
+<hr />
+
+<div id="content">
+
+	<div class="row">
+		<div class="medium-12 medium-centered large-12 large-centered columns">	
+		
+		    
+			<form id="frm-example" action="" method="POST">
+
+				<table id="example" class="display select" cellspacing="0" width="100%">
+					<thead>
+						<tr>
+							<th><input name="select_all" value="1" type="checkbox"></th>
+							<th>Name</th>
+							<th>Position</th>
+							<th>Office</th>
+							<th>Extn.</th>
+							<th>Start date</th>
+							<th>Salary</th>
+						</tr>
+					</thead>
+					<tfoot>
+						<tr>
+							<th></th>
+							<th>Name</th>
+							<th>Position</th>
+							<th>Office</th>
+							<th>Extn.</th>
+							<th>Start date</th>
+							<th>Salary</th>
+						</tr>
+					</tfoot>
+				</table>
+				<hr>
+
+				<p>Press <b>Submit</b> and check console for URL-encoded form data that would be submitted.</p>
+
+				<p><button>Submit</button></p>
+
+				<b>Data submitted to the server:</b><br>
+				<pre id="example-console">
+				</pre>
+			</form>
+			
+			<hr><br>
+			
+			<div id="table_alldeal"></div>
+			
+		</div>
+	</div>
+
+</div>
+<!--end of content-->
+
+<div id="footer">
+	<div class="row">
+		<div class="medium-6 columns">
+			<ul class="menu">
+				<li><a href="#" class="link_zq" id="home"><i class="fi-home"></i></a></li>
+				<li><a href="#" class="link_zq" id="contact"><i class="fi-torso"></i></a></li>
+				<li><a href="#" class="link_zq" id="about"><i class="fi-info"></i></a></li>
+			</ul>
+		</div>
+		<div class="medium-6 columns">
+			<ul class="menu float-right">
+				<li class="menu-text">Copyright © FascinWear, Co.Ltd. 2016</li>
+			</ul>
+		</div>
+	</div>
+</div>
+<!--end of footer-->
+
+</div>
+<!--end of container-->
+
+  <!-- JavaScript at the bottom for fast page loading -->
+
+    <script src="js/vendor/what-input.js"></script>
+    <script src="js/vendor/foundation.min.js"></script>
+    <script src="js/app.js"></script><!---->
+	<script type="text/javascript" src="https://intercom.zurb.com/scripts/zcom.js"></script>
+
+
+  <!-- end scripts-->
+
+
+</body>
+</html>

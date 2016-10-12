@@ -1,0 +1,14 @@
+{
+	"data":[
+		{
+		//多个用户
+		    "errorno": "E01071",
+		    "reasons": "Need to choose username in [test03] [test02] [test_user].",
+		    "result": "false"
+		},{
+		//单个用户
+		    "uuid": "af4c07863281180060c0ff1b4d7570eb",
+		    "result": "true"
+		}
+	]
+}
