@@ -9,6 +9,9 @@
 		//单个用户
 		    "uuid": "af4c07863281180060c0ff1b4d7570eb",
 		    "result": "true"
+		},{
+			"uuid": "af4c07863281180060c0ff1b4d7570eab",
+			"result":"false"
 		}
 	]
 }
